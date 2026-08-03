@@ -14,27 +14,27 @@ import CreateSubscriptionModal from "../../../components/CreateSubscriptionModal
 import {useState, useMemo} from "react";
 import { useUser } from '@clerk/expo';
 import { posthog } from '../../config/posthog';
+import { useSubscriptionStore } from "../../../lib/subscriptionStore";
 //import { usePostHog } from 'posthog-react-native';
 //import { useSubscriptionStore } from "@/lib/subscriptionStore";
 const SafeAreaView = styled(RNSafeAreaView);
 
 export default function App() {
     const { user } = useUser();
-    //const posthog = usePostHog();
     const [expandedSubscriptionId, setExpandedSubscriptionId] = useState<string | null>(null);
     const [isModalVisible, setIsModalVisible] = useState(false);
-    //const { subscriptions, addSubscription } = useSubscriptionStore();
+    const { subscriptions, addSubscription } = useSubscriptionStore();
 
     // Get upcoming subscriptions (active subscriptions with renewal date within next 7 days)
     const upcomingSubscriptions = useMemo(() => {
         const now = dayjs();
-        const nextWeek = now.add(7, 'days');
-        //return subscriptions.filter(sub =>
-       //     sub.status === 'active' &&
-      //      dayjs(sub.renewalDate).isAfter(now) &&
-      //      dayjs(sub.renewalDate).isBefore(nextWeek)
-      //  ).sort((a, b) => dayjs(a.renewalDate).diff(dayjs(b.renewalDate)));
-    }, [{/*subscriptions*/}]);
+        const nextWeek = now.add(60, 'days');
+        return subscriptions.filter(sub =>
+           sub.status === 'active' &&
+          dayjs(sub.renewalDate).isAfter(now) &&
+          dayjs(sub.renewalDate).isBefore(nextWeek)
+       ).sort((a, b) => dayjs(a.renewalDate).diff(dayjs(b.renewalDate)));
+    }, [subscriptions]);
 
     const handleSubscriptionPress = (item: Subscription) => {
         const isExpanding = expandedSubscriptionId !== item.id;
@@ -47,13 +47,13 @@ export default function App() {
     };
 
     const handleCreateSubscription = (newSubscription: Subscription) => {
-        {/*addSubscription(newSubscription);
-        posthog.capture('subscription_created', {
+        addSubscription(newSubscription);
+        posthog?.capture('subscription_created', {
             subscription_name: newSubscription.name,
             subscription_price: newSubscription.price,
-            subscription_frequency: newSubscription.frequency,
-            subscription_category: newSubscription.category,
-        });*/}
+            subscription_frequency: newSubscription.frequency ?? null,
+            subscription_category: newSubscription.category ?? null,
+        });
     };
 
     // Get user display name: firstName, fullName, or email
@@ -95,8 +95,11 @@ export default function App() {
                                 <ListHeading title="Upcoming" />
 
                                 <FlatList
-                                    data={UPCOMING_SUBSCRIPTIONS}
-                                    renderItem={({ item }) => (<UpcomingSubscriptionCard {...item} />)}
+                                    data={upcomingSubscriptions}
+                                    renderItem={({ item }) => {
+                                        const daysLeft = dayjs(item.renewalDate).diff(dayjs(), 'day');
+                                        return <UpcomingSubscriptionCard {...item} daysLeft={daysLeft} />;
+                                    }}
                                     keyExtractor={(item) => item.id}
                                     horizontal
                                     showsHorizontalScrollIndicator={false}
@@ -107,7 +110,7 @@ export default function App() {
                             <ListHeading title="All Subscriptions" />
                         </>
                     )}
-                    data={HOME_SUBSCRIPTIONS}
+                    data={subscriptions}
                     keyExtractor={(item) => item.id}
                     renderItem={({ item }) => (
                         <SubscriptionCard
@@ -123,11 +126,11 @@ export default function App() {
                     contentContainerClassName="pb-30"
                 />
 
-            {/*<CreateSubscriptionModal
-                //visible={isModalVisible}
-                //onClose={() => setIsModalVisible(false)}
-               // onSubmit={handleCreateSubscription}
-            />*/}
+            <CreateSubscriptionModal
+                visible={isModalVisible}
+                onClose={() => setIsModalVisible(false)}
+                onSubmit={handleCreateSubscription}
+            />
         </SafeAreaView>
     );
 }
