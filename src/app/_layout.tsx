@@ -1,4 +1,4 @@
-import { SplashScreen, Stack, usePathname } from "expo-router";
+import { SplashScreen, Stack, usePathname, useRouter } from "expo-router";
 import { ClerkProvider, useAuth } from "@clerk/expo";
 import { tokenCache } from "@clerk/expo/token-cache";
 import { useFonts } from "expo-font";
@@ -20,10 +20,23 @@ if (!publishableKey) {
 }
 
 function RootLayoutContent() {
-  const { isLoaded: authLoaded } = useAuth();
+  const { isLoaded: authLoaded, isSignedIn } = useAuth();
+  const router = useRouter();
   const pathname = usePathname();
   const params = useGlobalSearchParams();
   const previousPathname = useRef<string | undefined>(undefined);
+  const coldStartHandled = useRef(false);
+
+  useEffect(() => {
+    // Reloading in Expo Go restores the last URL (e.g. a deep link to
+    // (auth)/sign-in). On a cold start, signed-out users should always land
+    // on onboarding instead of resuming a previously visited screen.
+    if (!authLoaded || coldStartHandled.current) return;
+    coldStartHandled.current = true;
+    if (!isSignedIn) {
+      router.replace("/onboarding");
+    }
+  }, [authLoaded, isSignedIn, router]);
 
   useEffect(() => {
     if (previousPathname.current !== pathname) {
@@ -66,7 +79,7 @@ function RootLayoutContent() {
   // Don't render app until both are ready
   if (!fontsLoaded || !authLoaded) return null;
 
-  return <Stack screenOptions={{ headerShown: false }} />;
+  return <Stack initialRouteName="onboarding" screenOptions={{ headerShown: false }} />;
 }
 
 export default function RootLayout() {
